@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System and Docker Metrics</title>
+</head>
+<body>
+  <h1>System and Docker Metrics</h1>
+  <div id="metrics"></div>
+
+  <script>
+    const eventSource = new EventSource('http://localhost:4000/status');
+
+    eventSource.onmessage = function(event) {
+      // Parse JSON data from the server
+      const data = JSON.parse(event.data);
+
+      // Display the data on the webpage
+      document.getElementById('metrics').innerHTML = `
+        <h2>System Metrics</h2>
+        <p>Total RAM: ${data.system.totalRam} bytes</p>
+        <p>Free RAM: ${data.system.freeRam} bytes</p>
+        <p>CPU Usage: ${data.system.cpuUsage}%</p>
+        <p>Battery: ${data.system.battery}%</p>
+        <p>Disk Usage: ${data.system.diskUsage}%</p>
+
+        <h2>Docker Container Metrics</h2>
+        <ul>
+          ${data.containers.map(container => `
+            <li>
+              <strong>${container.name}</strong><br>
+              CPU Usage: ${container.cpuUsage} ns<br>
+              Memory Usage: ${container.memoryUsage} bytes / ${container.memoryLimit} bytes
+            </li>
+          `).join('')}
+        </ul>
+      `;
+    };
+
+    eventSource.onerror = function(error) {
+      console.error('Error with SSE connection:', error);
+      document.getElementById('metrics').innerHTML = '<p>Connection lost. Retrying...</p>';
+    };
+  </script>
+</body>
+</html>
