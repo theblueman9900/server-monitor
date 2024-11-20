@@ -195,7 +195,7 @@
       // Fetch initial data from REST API
       async function fetchInitialData() {
         try {
-          const response = await fetch('http://localhost:4000/api/metrics');
+          const response = await fetch('https://monitor.theblueman.in/api/metrics');
           if (!response.ok) {
             throw new Error('Network response was not ok');
           }
@@ -210,7 +210,7 @@
       fetchInitialData();
 
       // Establish SSE connection
-      const eventSource = new EventSource('http://localhost:4000/status');
+      const eventSource = new EventSource('https://monitor.theblueman.in/status');
 
       eventSource.onmessage = function (event) {
         const data = JSON.parse(event.data);
