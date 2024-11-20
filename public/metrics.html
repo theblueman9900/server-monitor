@@ -1,47 +1,205 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>System and Docker Metrics</title>
-</head>
-<body>
-  <h1>System and Docker Metrics</h1>
-  <div id="metrics"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System and Docker Metrics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 10px;
+        background-color: #f4f4f9;
+      }
 
-  <script>
-    const eventSource = new EventSource('http://localhost:4000/status');
+      h1 {
+        text-align: center;
+        color: #4caf50;
+        margin-bottom: 20px;
+      }
 
-    eventSource.onmessage = function(event) {
-      // Parse JSON data from the server
-      const data = JSON.parse(event.data);
+      .container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+      }
 
-      // Display the data on the webpage
-      document.getElementById('metrics').innerHTML = `
-        <h2>System Metrics</h2>
-        <p>Total RAM: ${data.system.totalRam} bytes</p>
-        <p>Free RAM: ${data.system.freeRam} bytes</p>
-        <p>CPU Usage: ${data.system.cpuUsage}%</p>
-        <p>Battery: ${data.system.battery}%</p>
-        <p>Disk Usage: ${data.system.diskUsage}%</p>
+      .chart-container {
+        width: 100%;
+        max-width: 300px;
+        height: 450px; /* Fixed height for consistent chart size */
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        text-align: center;
+      }
 
-        <h2>Docker Container Metrics</h2>
-        <ul>
-          ${data.containers.map(container => `
-            <li>
-              <strong>${container.name}</strong><br>
-              CPU Usage: ${container.cpuUsage} ns<br>
-              Memory Usage: ${container.memoryUsage} bytes / ${container.memoryLimit} bytes
-            </li>
-          `).join('')}
-        </ul>
-      `;
-    };
+      .chart-container h3 {
+        font-size: 16px;
+        color: #333;
+        margin-bottom: 10px;
+      }
 
-    eventSource.onerror = function(error) {
-      console.error('Error with SSE connection:', error);
-      document.getElementById('metrics').innerHTML = '<p>Connection lost. Retrying...</p>';
-    };
-  </script>
-</body>
+      #container-metrics {
+        margin-top: 20px;
+      }
+
+      ul {
+        list-style-type: none;
+        padding: 0;
+      }
+
+      ul li {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 10px;
+        padding: 10px;
+      }
+
+      @media (max-width: 768px) {
+        .chart-container {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>System and Docker Metrics</h1>
+    <div class="container">
+      <div class="chart-container">
+        <h3>CPU Usage</h3>
+        <canvas id="cpuUsageChart"></canvas>
+        <p id="cpuUsageValue">0%</p>
+      </div>
+      <div class="chart-container">
+        <h3>RAM Usage</h3>
+        <canvas id="ramUsageChart"></canvas>
+        <p id="ramUsageValue">0%</p>
+      </div>
+      <div class="chart-container">
+        <h3>Disk Usage</h3>
+        <canvas id="diskUsageChart"></canvas>
+        <p id="diskUsageValue">0%</p>
+      </div>
+      <div class="chart-container">
+        <h3>Battery</h3>
+        <canvas id="batteryChart"></canvas>
+        <p id="batteryValue">0%</p>
+      </div>
+    </div>
+
+    <h2>Docker Container Metrics</h2>
+    <div id="container-metrics">
+      <ul id="containerList"></ul>
+    </div>
+
+    <script>
+      const config = {
+        type: 'doughnut',
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 1,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const value = context.raw;
+                  const label = context.label || '';
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return `${label}: ${value} (${percentage}%)`;
+                },
+              },
+            },
+          },
+          cutout: '30%',
+        },
+      };
+
+      // Charts Initialization
+      const cpuUsageChart = new Chart(document.getElementById('cpuUsageChart').getContext('2d'), {
+        ...config,
+        data: {
+          labels: ['Used', 'Free'],
+          datasets: [{ data: [0, 100], backgroundColor: ['#FF6384', '#36A2EB'] }],
+        },
+      });
+
+      const ramUsageChart = new Chart(document.getElementById('ramUsageChart').getContext('2d'), {
+        ...config,
+        data: {
+          labels: ['Used', 'Free'],
+          datasets: [{ data: [0, 100], backgroundColor: ['#FFCE56', '#4BC0C0'] }],
+        },
+      });
+
+      const diskUsageChart = new Chart(document.getElementById('diskUsageChart').getContext('2d'), {
+        ...config,
+        data: {
+          labels: ['Used', 'Free'],
+          datasets: [{ data: [0, 100], backgroundColor: ['#FF9F40', '#9966FF'] }],
+        },
+      });
+
+      const batteryChart = new Chart(document.getElementById('batteryChart').getContext('2d'), {
+        ...config,
+        data: {
+          labels: ['Used', 'Remaining'],
+          datasets: [{ data: [0, 100], backgroundColor: ['#FF6384', '#4BC0C0'] }],
+        },
+      });
+
+      const containerList = document.getElementById('containerList');
+
+      // EventSource for real-time data
+      const eventSource = new EventSource('http://localhost:4000/status');
+
+      eventSource.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+
+        // Update System Charts
+        cpuUsageChart.data.datasets[0].data = [Math.round(data.system.cpuUsage), Math.round(100 - data.system.cpuUsage)];
+        cpuUsageChart.update();
+        document.getElementById('cpuUsageValue').innerText = `${Math.round(data.system.cpuUsage)}%`;
+
+        const usedRam = data.system.totalRam - data.system.freeRam;
+        const ramUsagePercentage = ((usedRam / data.system.totalRam) * 100).toFixed(1);
+        ramUsageChart.data.datasets[0].data = [usedRam, data.system.freeRam];
+        ramUsageChart.update();
+        document.getElementById('ramUsageValue').innerText = `${ramUsagePercentage}%`;
+
+        diskUsageChart.data.datasets[0].data = [data.system.diskUsage, 100 - data.system.diskUsage];
+        diskUsageChart.update();
+        document.getElementById('diskUsageValue').innerText = `${data.system.diskUsage}%`;
+
+        batteryChart.data.datasets[0].data = [100 - data.system.battery, data.system.battery];
+        batteryChart.update();
+        document.getElementById('batteryValue').innerText = `${data.system.battery}%`;
+
+        // Update Docker Containers
+        containerList.innerHTML = ''; // Clear previous list
+        data.containers.forEach(container => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+          <strong>${container.name}</strong><br>
+          CPU: ${container.cpu}%<br>
+          Memory: ${container.memoryUsage} / ${container.memoryLimit}
+        `;
+          containerList.appendChild(li);
+        });
+      };
+
+      eventSource.onerror = function (error) {
+        console.error('Error with SSE connection:', error);
+        containerList.innerHTML = '<p>Connection lost. Retrying...</p>';
+      };
+    </script>
+  </body>
 </html>
