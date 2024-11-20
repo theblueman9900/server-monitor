@@ -9,6 +9,8 @@ const path = require('path');
 
 // Serve the HTML file
 app.use(express.static(path.join(__dirname, 'public')));
+
+// SSE Endpoint
 app.get('/status', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -25,6 +27,17 @@ app.get('/status', (req, res) => {
   req.on('close', () => {
     clearInterval(intervalId);
   });
+});
+
+// REST API Endpoint
+app.get('/api/metrics', async (req, res) => {
+  try {
+    const metrics = await getMetrics();
+    res.json(metrics);
+  } catch (error) {
+    console.error('Error fetching metrics:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 async function getSystemMetrics() {
@@ -52,7 +65,7 @@ async function getContainerMetrics() {
     const statsStream = await container.stats({ stream: false });
     containerStats.push({
       id: containerInfo.Id,
-      name: containerInfo.Names[0],
+      name: containerInfo.Names[0].replace(/^\//, ''), // Clean up name
       cpuUsage: statsStream.cpu_stats.cpu_usage.total_usage,
       memoryUsage: statsStream.memory_stats.usage,
       memoryLimit: statsStream.memory_stats.limit,
